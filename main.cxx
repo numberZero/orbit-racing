@@ -1,0 +1,210 @@
+#include <ctime>
+#include <cstdint>
+#include <algorithm>
+#include <deque>
+#include <list>
+#include <vector>
+#include <GL/gl.h>
+#include <GL/glut.h>
+#include <SDL.h>
+#include "vector.hxx"
+
+typedef Vector<double, 2> v2;
+typedef Vector<double, 3> v3;
+
+SDL_GLContext context;
+SDL_Window *window;
+std::uint8_t const *keys;
+std::uint32_t t_base;
+double dt;
+
+struct obj
+{
+	v2 pos, vel;
+	v3 color;
+	int state = 0;
+
+	obj(v2 x, v2 v, v3 c)
+		: pos(x), vel(v), color(c)
+	{
+	}
+
+	std::deque<v2> trace;
+	void step();
+	void draw() const;
+};
+
+void obj::step()
+{
+	trace.push_back(pos);
+	double r = pos.norm();
+	v2 force = -pos / (r * r * r);
+	vel += force * dt;
+	pos += vel * dt;
+}
+
+void obj::draw() const
+{
+	glColor3dv(color);
+	glVertex2dv(pos);
+}
+
+std::list<obj> os;
+std::list<std::vector<v2>> marks;
+
+void init()
+{
+	for (int k = -4; k <= 4; k++)
+		os.emplace_back(v2{1.0, 0.0}, v2{0.0, 1.0 + 0.05 * k}, v3{1.0, 0.2 * k, -0.2 * k});
+}
+
+void step()
+{
+	static double dd = 0.0;
+	dd += dt;
+	if (dd >= 0.333) {
+		dd -= 0.333;
+		std::vector<v2> mark;
+		mark.reserve(os.size() + 1);
+		mark.emplace_back();
+		for (obj const &o: os)
+			mark.push_back(o.pos);
+		marks.push_back(std::move(mark));
+	}
+	for (obj &o: os) {
+		if (o.state >= 2)
+			continue;
+		o.step();
+		if (o.pos[1] < 0)
+			o.state = 1;
+		else if (o.state)
+			o.state = 2;
+	}
+}
+
+void draw()
+{
+	glClear(GL_COLOR_BUFFER_BIT);
+	glLoadIdentity();
+	glScaled(150.0, 150.0, 150.0);
+	glColor4f(1.0, 0.0, 0.0, 1.0);
+	for(obj const &o: os) {
+		glColor3dv(o.color);
+		glBegin(GL_LINE_STRIP);
+		for (v2 const &v: o.trace)
+			glVertex2dv(v);
+		glEnd();
+	}
+	glColor4d(1.0, 1.0, 1.0, 0.1);
+	for (auto mark: marks) {
+		glBegin(GL_LINE_STRIP);
+		for (v2 const &v: mark)
+			glVertex2dv(v);
+		glEnd();
+	}
+	glBegin(GL_POINTS);
+	glVertex2d(0.0, 0.0);
+	for(obj const &o: os)
+		o.draw();
+	glEnd();
+	glFlush();
+	glFinish();
+	SDL_GL_SwapWindow(window);
+}
+
+void resize()
+{
+	int window_width, window_height;
+	SDL_GL_GetDrawableSize(window, &window_width, &window_height);
+	glViewport(0, 0, window_width, window_height);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	double viewport_half_width = std::max(400.0, 300.0 * window_width / window_height);
+	double viewport_half_height = std::max(300.0, 400.0 * window_height / window_width);
+	glOrtho(-viewport_half_width, viewport_half_width, -viewport_half_height, viewport_half_height, -100.0, 100.0);
+	glMatrixMode(GL_MODELVIEW);
+}
+
+bool events()
+{
+	SDL_Event event;
+	while(SDL_PollEvent(&event))
+	{
+		switch(event.type)
+		{
+			case SDL_QUIT:
+				return false;
+			case SDL_KEYDOWN:
+				if(event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+					return false;
+				break;
+		}
+	}
+	return true;
+}
+
+void run()
+{
+	static std::uint32_t t0 = SDL_GetTicks();
+	while(events()) {
+		std::uint32_t t1 = SDL_GetTicks();
+		dt = 1e-3 * (t1 - t0);
+		t0 = t1;
+		resize();
+		step();
+		draw();
+	}
+}
+
+void initSDL()
+{
+	SDL_Init(SDL_INIT_EVERYTHING);
+	keys = SDL_GetKeyboardState(nullptr);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+	window = SDL_CreateWindow(
+		"Ein Klein Flug",
+		SDL_WINDOWPOS_UNDEFINED,
+		SDL_WINDOWPOS_UNDEFINED,
+		800,
+		600,
+		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+		);
+	context = SDL_GL_CreateContext(window);
+	SDL_GL_MakeCurrent(window, context);
+	SDL_GL_SetSwapInterval(-1);
+	t_base = SDL_GetTicks();
+}
+
+void initGL()
+{
+	glDisable(GL_LIGHTING);
+	glDisable(GL_DEPTH);
+	
+	glEnable(GL_MULTISAMPLE);
+	glPointSize(3.0);
+	glLineWidth(1.5);
+	
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-400, 400, -300, 300, -10, 100);
+	glMatrixMode(GL_MODELVIEW);
+
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+int main(int argc, char **argv)
+{
+	glutInit(&argc, argv);
+	initSDL();
+	initGL();
+	init();
+	run();
+	SDL_Quit();
+	return 0;
+}

@@ -1,3 +1,4 @@
 [Project]
+CreatedFrom=CMakeLists.txt
+Manager=KDevCMakeManager
 Name=orbit_test
-Manager=KDevGenericManager
