@@ -22,7 +22,6 @@ struct obj
 {
 	v2 pos, vel;
 	v3 color;
-	int state = 0;
 
 	obj(v2 x, v2 v, v3 c)
 		: pos(x), vel(v), color(c)
@@ -52,10 +51,20 @@ void obj::draw() const
 std::list<obj> os;
 std::list<std::vector<v2>> marks;
 
+obj &add(v3 c)
+{
+	os.emplace_back(v2{1.0, 0.0}, v2{0.0, 1.0}, c);
+	return os.back();
+}
+
+obj &o_bw = add({0.0, 0.0, 1.0});
+obj &o_dn = add({0.0, 1.0, 1.0});
+obj &o_st = add({1.0, 1.0, 1.0});
+obj &o_up = add({1.0, 1.0, 0.0});
+obj &o_fw = add({1.0, 0.0, 0.0});
+
 void init()
 {
-	for (int k = -4; k <= 4; k++)
-		os.emplace_back(v2{1.0, 0.0}, v2{0.0, 1.0 + 0.05 * k}, v3{1.0, 0.2 * k, -0.2 * k});
 }
 
 void step()
@@ -71,15 +80,12 @@ void step()
 			mark.push_back(o.pos);
 		marks.push_back(std::move(mark));
 	}
-	for (obj &o: os) {
-		if (o.state >= 2)
-			continue;
+	for (obj &o: os)
 		o.step();
-		if (o.pos[1] < 0)
-			o.state = 1;
-		else if (o.state)
-			o.state = 2;
-	}
+	o_fw.vel += 0.1 * ortho(o_fw.pos.normed()) * dt;
+	o_bw.vel += -0.1 * ortho(o_bw.pos.normed()) * dt;
+	o_up.vel += 0.1 * o_up.pos.normed() * dt;
+	o_dn.vel += -0.1 * o_dn.pos.normed() * dt;
 }
 
 void draw()
@@ -95,13 +101,13 @@ void draw()
 			glVertex2dv(v);
 		glEnd();
 	}
-	glColor4d(1.0, 1.0, 1.0, 0.1);
-	for (auto mark: marks) {
-		glBegin(GL_LINE_STRIP);
-		for (v2 const &v: mark)
-			glVertex2dv(v);
-		glEnd();
-	}
+// 	glColor4d(1.0, 1.0, 1.0, 0.1);
+// 	for (auto mark: marks) {
+// 		glBegin(GL_LINE_STRIP);
+// 		for (v2 const &v: mark)
+// 			glVertex2dv(v);
+// 		glEnd();
+// 	}
 	glBegin(GL_POINTS);
 	glVertex2d(0.0, 0.0);
 	for(obj const &o: os)
@@ -148,7 +154,7 @@ void run()
 	static std::uint32_t t0 = SDL_GetTicks();
 	while(events()) {
 		std::uint32_t t1 = SDL_GetTicks();
-		dt = 1e-3 * (t1 - t0);
+		dt = std::min(0.050, 1e-3 * (t1 - t0));
 		t0 = t1;
 		resize();
 		step();
@@ -183,7 +189,7 @@ void initGL()
 	glDisable(GL_DEPTH);
 	
 	glEnable(GL_MULTISAMPLE);
-	glPointSize(3.0);
+	glPointSize(5.0);
 	glLineWidth(1.5);
 	
 	glEnable(GL_BLEND);
