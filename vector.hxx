@@ -176,3 +176,33 @@ inline Vector<T, 2> ortho(Vector<T, 2> v)
 		v[0]
 	};
 }
+
+template <typename T>
+inline T cross(Vector<T, 2> u, Vector<T, 2> v)
+{
+	return u[0] * v[1] - u[1] * v[0];
+}
+
+template <typename T, int n>
+inline T cosphi(Vector<T, n> u, Vector<T, n> v)
+{
+	return (u * v) / std::sqrt(u.squaredNorm() * v.squaredNorm());
+}
+
+template <typename T>
+inline T sinphi(Vector<T, 2> u, Vector<T, 2> v)
+{
+	return cross(u, v) / std::sqrt(u.squaredNorm() * v.squaredNorm());
+}
+
+template <typename T, int n>
+inline T angle(Vector<T, n> u, Vector<T, n> v)
+{
+	return std::acos(cosphi(u, v));
+}
+
+template <typename T>
+inline T sangle(Vector<T, 2> u, Vector<T, 2> v)
+{
+	return std::asin(sinphi(u, v));
+}
