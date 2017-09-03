@@ -62,6 +62,11 @@ struct Vector
 		return *this * *this;
 	}
 
+	Vector normed() const
+	{
+		return *this / norm();
+	}
+
 	Scalar &operator[] (int index)
 	{
 		if(index < 0 || index >= N)
@@ -160,5 +165,14 @@ inline Vector<T, 2> directionVector(T angle, T length = T(1))
 	return {
 		length * std::cos(angle),
 		length * std::sin(angle)
+	};
+}
+
+template <typename T>
+inline Vector<T, 2> ortho(Vector<T, 2> v)
+{
+	return {
+		-v[1],
+		v[0]
 	};
 }
