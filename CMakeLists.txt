@@ -10,6 +10,7 @@ find_package(Threads REQUIRED)
 
 add_executable(orbit_test
 	main.cxx
+	text.cxx
 )
 target_compile_definitions(orbit_test PRIVATE
         GL_GLEXT_PROTOTYPES
